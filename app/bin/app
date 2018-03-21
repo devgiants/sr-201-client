@@ -58,6 +58,7 @@ $container['tools'] = new Tools();
 $application->add( new Command\UpdateCommand( 'self-update', $container ) );
 
 $application->add( new Command\SwitchCommand( 'switch', $container ) );
+$application->add( new Command\GetConfigCommand( 'config:get', $container ) );
 
 $application->run();
 

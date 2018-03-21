@@ -21,6 +21,7 @@ class SwitchCommand extends ApplicationCommand
 	const IP = 'ip';
 	const CHANNEL = 'channel';
 	const STATE = 'state';
+	const DURATION = 'duration';
 	const REQUIRED_OPTIONS = [self::IP, self::CHANNEL, self::STATE ];
 
 	const ALLOWED_VALUES_ON = ['on', '1', 'true'];
@@ -36,10 +37,31 @@ class SwitchCommand extends ApplicationCommand
 		$this
 			->setName('switch')
 			->setDescription('Switch given channel relay to desired state')
-			->setHelp('switch --ip=X.X.X.X --channel=X --state=1')
-			->addOption(static::IP, 'i', InputOption::VALUE_REQUIRED, 'The relay IP to switch. Must be a valid IPv4 or IPv6')
-			->addOption(static::CHANNEL, 'c', InputOption::VALUE_REQUIRED, 'The channel to switch. Must be integer between 1 and 8')
-			->addOption(static::STATE, 's', InputOption::VALUE_REQUIRED, 'The value to set. Must be 0 or 1, true or false, on or off')
+			->setHelp('switch --ip=X.X.X.X --channel=1|2|3|4|5|6|7|8 --state=1|on|ON|true|TRUE|0|off|OFF|false|FALSE [--duration=X]')
+			->addOption(
+				static::IP,
+				'i',
+				InputOption::VALUE_REQUIRED,
+				'The relay IP to switch. Must be a valid IPv4 or IPv6'
+			)
+			->addOption(
+				static::CHANNEL,
+				'c',
+				InputOption::VALUE_REQUIRED,
+				'The channel to switch. Must be integer between 1 and 8'
+			)
+			->addOption(
+				static::STATE,
+				's',
+				InputOption::VALUE_REQUIRED,
+				'The value to set. Must be 0 or 1, true or false, on or off'
+			)
+			->addOption(
+				static::DURATION,
+				'd',
+				InputOption::VALUE_OPTIONAL,
+				'The switch on duration'
+			)
 		;
 	}
 
@@ -66,6 +88,10 @@ class SwitchCommand extends ApplicationCommand
 			throw new InvalidOptionException('Value must be one of those : ' . implode(', ', array_merge(self::ALLOWED_VALUES_ON, self::ALLOWED_VALUES_OFF)));
 		}
 
+		if(null !== $input->getOption(self::DURATION) && (!is_numeric($input->getOption(self::DURATION)) || $input->getOption(self::DURATION) < 0)) {
+			throw new InvalidOptionException('duration must be a positive integer');
+		}
+
 		// Normalize value
 		if(in_array($input->getOption(self::STATE), self::ALLOWED_VALUES_ON)) {
 			$state = self::ON;
@@ -77,7 +103,8 @@ class SwitchCommand extends ApplicationCommand
 		$this->container['tools']->sendCommand(
 			$input->getOption(self::IP),
 			$input->getOption(self::CHANNEL),
-			$state
+			$state,
+			$input->getOption(self::DURATION)
 		);
 	}
 

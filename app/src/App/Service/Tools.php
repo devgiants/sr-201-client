@@ -11,33 +11,70 @@ namespace App\Service;
 use App\Exception\SocketException;
 
 class Tools {
+	const TCP = 'tcp';
+	const UDP = 'udp';
 	const RELAY_TCP_COMMAND_PORT = 6722;
 	const RELAY_UDP_COMMAND_PORT = 6723;
 	const RELAY_TCP_CONFIG_PORT = 5111;
 
-	public function sendCommand($ip, $channel, $state) {
 
-		// TODO add UDP connection ability
-		$socket = socket_create( AF_INET, SOCK_STREAM, SOL_TCP );
-		if ( ! $socket ) {
-			$errorNumber = socket_last_error();
-			throw new SocketException(socket_strerror( $errorNumber ), $errorNumber);
-		}
+	/**
+	 * @param string $ip
+	 *
+	 * @return string
+	 * @throws SocketException
+	 */
+	public function getConfig($ip) {
+		return $this->writeSocket($ip, "#1 5564;", static::RELAY_TCP_CONFIG_PORT);
+	}
 
-		if ( ! socket_connect( $socket, $ip, static::RELAY_TCP_COMMAND_PORT ) ) {
-			$errorNumber = socket_last_error();
-			throw new SocketException(socket_strerror( $errorNumber ), $errorNumber);
-		}
-		// TODO add duration handling
+
+	/**
+	 * @param string $ip
+	 * @param string $channel
+	 * @param bool|string $state
+	 * @param int $duration
+	 *
+	 * @return string
+	 * @throws SocketException
+	 */
+	public function sendCommand($ip, $channel, $state, $duration = null) {
+
 		$message = $state . $channel;
-		$length = strlen( $message );
-		$sent   = socket_write( $socket, $message, $length );
-		if ( false === $sent ) {
+
+		if(null !== $duration) {
+			$message .= ":{$duration}";
+		}
+
+		return $this->writeSocket($ip, $message);
+	}
+
+	/**
+	 * @param string $ip
+	 * @param string $message
+	 * @param int $port
+	 * @param string $type
+	 *
+	 * @return string
+	 * @throws SocketException
+	 */
+	protected function writeSocket($ip, $message, $port = self::RELAY_TCP_COMMAND_PORT, $type = self::TCP) {
+		$socket = stream_socket_client("{$type}://{$ip}:{$port}");
+		if ($socket) {
+			$sent = stream_socket_sendto($socket, $message);
+			stream_socket_shutdown($socket, STREAM_SHUT_RDWR);
+
+//			if ($sent > 0) {
+				$serverResponse = fread($socket, 1024);
+				echo $serverResponse;
+				return $serverResponse;
+//			} else {
+//				$errorNumber = socket_last_error();
+//				throw new SocketException(socket_strerror( $errorNumber ), $errorNumber);
+//			}
+		} else {
 			$errorNumber = socket_last_error();
 			throw new SocketException(socket_strerror( $errorNumber ), $errorNumber);
-		} else if ( $length !== $sent ) {
-			$msg = sprintf( 'only %d of %d bytes sent', $length, $sent );
-			trigger_error( $msg, E_USER_NOTICE );
 		}
 	}
 }

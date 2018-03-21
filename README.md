@@ -36,7 +36,7 @@ _Note : the cloud setup is missing on purpose, I assume that you will use this c
 ### Changing relays states
 
 ```
-sr-201 switch --ip=X.X.X.X --channel=X --state=1
+switch --ip=X.X.X.X --channel=1|2|3|4|5|6|7|8 --state=1|on|ON|true|TRUE|0|off|OFF|false|FALSE [--duration=X]
 ```
 
 ## Theory
