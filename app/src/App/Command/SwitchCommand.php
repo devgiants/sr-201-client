@@ -55,7 +55,7 @@ class SwitchCommand extends ApplicationCommand
 			->addOption(
 				Tools::DURATION,
 				'd',
-				InputOption::VALUE_OPTIONAL,
+				InputOption::VALUE_REQUIRED,
 				'The switch on duration'
 			)
 		;

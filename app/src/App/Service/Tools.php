@@ -9,6 +9,7 @@
 namespace App\Service;
 
 use App\Exception\SocketException;
+use Symfony\Component\Console\Exception\InvalidOptionException;
 
 class Tools {
 
@@ -25,6 +26,7 @@ class Tools {
 	const RELAY_UDP_COMMAND_PORT = 6723;
 	const RELAY_TCP_CONFIG_PORT = 5111;
 
+	// Config
 	const MODULE_IP = 'module_ip';
 	const MODULE_SUBNET_MASK = 'module_subnet_mask';
 	const MODULE_GATEWAY = 'module_gateway';
@@ -34,19 +36,28 @@ class Tools {
 	const MODULE_CLOUD_DNS = 'module_cloud_dns';
 	const MODULE_CLOUD_SERVER = 'module_cloud_server';
 	const MODULE_CLOUD_STATE = 'module_cloud_state';
+	const MODULE_CLOUD_PASSWORD = 'module_cloud_password';
+
+	const SAVE_AND_RESTART_KEY = 7;
 
 	const CONFIG = [
-		0 => self::MODULE_IP,
-		1 => self::MODULE_SUBNET_MASK,
-		2 => self::MODULE_GATEWAY,
-		3 => null,
-		4 => self::MODULE_RESET_PERSISTENCE,
-		5 => self::MODULE_VERSION,
-		6 => self::MODULE_SERIAL,
-		7 => self::MODULE_CLOUD_DNS,
-		8 => self::MODULE_CLOUD_SERVER,
-		9 => self::MODULE_CLOUD_STATE,
+		self::MODULE_IP                => 2,
+		self::MODULE_SUBNET_MASK       => 3,
+		self::MODULE_GATEWAY           => 4,
+		null                           => null,
+		self::MODULE_RESET_PERSISTENCE => 6,
+		self::MODULE_VERSION,
+		self::MODULE_SERIAL,
+		self::MODULE_CLOUD_DNS         => 8,
+		self::MODULE_CLOUD_SERVER      => 9,
+		self::MODULE_CLOUD_STATE       => 'A',
+		self::MODULE_CLOUD_PASSWORD    => 'B',
 	];
+
+	const OK = '>OK;';
+	const ERROR = '>ERR;';
+
+	protected $rand;
 
 	/**
 	 * @param string $ip
@@ -54,18 +65,87 @@ class Tools {
 	 * @return array
 	 * @throws SocketException
 	 */
-	public function getConfig($ip) {
-		$rand = $this->getRandomNumber();
+	public function getConfig( $ip ) {
+		if ( null === $this->rand ) {
+			$this->rand = $this->getRandomNumber();
+		}
+
+		// Send config value request "#1" + random number on 4 digits
+		// Explode with "," delimiter
+		// Trim ">" and ";" that are at string beginning and ending
 		$rawModuleData = explode(
 			',',
-			trim($this->writeSocket(
+			trim( $this->writeSocket(
 				$ip,
-				"#1{$rand};",
+				"#1{$this->rand};",
 				static::RELAY_TCP_CONFIG_PORT
-			), '>;')
+			), '>;' )
 		);
 
-		return array_combine(static::CONFIG, $rawModuleData);
+		// Add dummy item to simulate password place (needed for array_combine)
+		$rawModuleData[] = "";
+
+
+		$moduleData = array_combine( array_keys( static::CONFIG ), $rawModuleData );
+
+		// Remove last dummy item
+		array_pop( $moduleData );
+
+		return $moduleData;
+
+	}
+
+
+	/**
+	 * @param string $ip
+	 * @param array $param
+	 *
+	 * @throws SocketException
+	 */
+	public function setConfig( $ip, array $param ) {
+
+		// Make et getConfig before to ensure module set acception
+		$this->getConfig( $ip );
+
+		if ( ! isset( static::CONFIG[ $param['name'] ] ) ) {
+			throw new InvalidOptionException();
+		}
+		$configRequest = static::CONFIG[ $param['name'] ];
+
+
+		// Set config
+		$response = $this->writeSocket(
+			$ip,
+			"#{$configRequest}{$this->rand},{$param['value']};",
+			static::RELAY_TCP_CONFIG_PORT
+		);
+
+		if ( static::OK !== $response ) {
+			throw new SocketException( "Module response unexpected : $response" );
+		}
+	}
+
+	/**
+	 * @param $ip
+	 */
+	public function saveConfig($ip) {
+		// Make et getConfig before to ensure module set acception
+		$this->getConfig( $ip );
+
+
+		$configRequest = static::SAVE_AND_RESTART_KEY;
+
+
+		// Send restart command
+		$response = $this->writeSocket(
+			$ip,
+			"#{$configRequest}{$this->rand};",
+			static::RELAY_TCP_CONFIG_PORT
+		);
+
+		if ( static::OK !== $response ) {
+			throw new SocketException( "Module response unexpected : $response" );
+		}
 	}
 
 
@@ -78,15 +158,15 @@ class Tools {
 	 * @return string
 	 * @throws SocketException
 	 */
-	public function sendCommand($ip, $channel, $state, $duration = null) {
+	public function sendCommand( $ip, $channel, $state, $duration = null ) {
 
 		$message = $state . $channel;
 
-		if(null !== $duration) {
+		if ( null !== $duration ) {
 			$message .= ":{$duration}";
 		}
 
-		return $this->writeSocket($ip, $message);
+		return $this->writeSocket( $ip, $message );
 	}
 
 	/**
@@ -98,22 +178,23 @@ class Tools {
 	 * @return string
 	 * @throws SocketException
 	 */
-	protected function writeSocket($ip, $message, $port = self::RELAY_TCP_COMMAND_PORT, $type = self::TCP) {
-		$socket = stream_socket_client("{$type}://{$ip}:{$port}");
-		if ($socket) {
-			$sent = stream_socket_sendto($socket, $message);
-			if ($sent > 0) {
-				$serverResponse = fread($socket, 1024);
+	protected function writeSocket( $ip, $message, $port = self::RELAY_TCP_COMMAND_PORT, $type = self::TCP ) {
+		$socket = stream_socket_client( "{$type}://{$ip}:{$port}" );
+		if ( $socket ) {
+			$sent = stream_socket_sendto( $socket, $message );
+			if ( $sent > 0 ) {
+				$serverResponse = fread( $socket, 1024 );
 				// Close socket before returning
-				stream_socket_shutdown($socket, STREAM_SHUT_RDWR);
+				stream_socket_shutdown( $socket, STREAM_SHUT_RDWR );
+
 				return $serverResponse;
 			} else {
 				$errorNumber = socket_last_error();
-				throw new SocketException(socket_strerror( $errorNumber ), $errorNumber);
+				throw new SocketException( socket_strerror( $errorNumber ), $errorNumber );
 			}
 		} else {
 			$errorNumber = socket_last_error();
-			throw new SocketException(socket_strerror( $errorNumber ), $errorNumber);
+			throw new SocketException( socket_strerror( $errorNumber ), $errorNumber );
 		}
 	}
 
@@ -121,6 +202,6 @@ class Tools {
 	 * @return int
 	 */
 	protected function getRandomNumber() {
-		return(rand(0, 9999));
+		return ( rand( 0, 9999 ) );
 	}
 }
