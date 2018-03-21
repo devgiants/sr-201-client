@@ -18,8 +18,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class GetConfigCommand extends ApplicationCommand
 {
-	const IP = 'ip';
-	const REQUIRED_OPTIONS = [self::IP];
+	const REQUIRED_OPTIONS = [Tools::IP];
 
 	/**
 	 * @inheritdoc
@@ -31,7 +30,7 @@ class GetConfigCommand extends ApplicationCommand
 			->setDescription('Get config for device at given IP')
 			->setHelp('config:get --ip=X.X.X.X')
 			->addOption(
-				static::IP,
+				Tools::IP,
 				'i',
 				InputOption::VALUE_REQUIRED,
 				'The relay IP to get config from. Must be a valid IPv4 or IPv6'
@@ -52,14 +51,16 @@ class GetConfigCommand extends ApplicationCommand
 		}, static::REQUIRED_OPTIONS, ['input' => $input]);
 
 		// Business checks around options
-		if (!filter_var($input->getOption(self::IP), FILTER_VALIDATE_IP)) {
+		if (!filter_var($input->getOption(Tools::IP), FILTER_VALIDATE_IP)) {
 			throw new InvalidOptionException('IP must be a valid IP format (IPv4 or IPv6)');
 		}
 
 
-		$this->container['tools']->getConfig(
-			$input->getOption(self::IP)
+		$moduleData = $this->container['tools']->getConfig(
+			$input->getOption(Tools::IP)
 		);
+
+		$output->writeln(json_encode($moduleData));
 	}
 
 }

@@ -18,11 +18,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class SwitchCommand extends ApplicationCommand
 {
-	const IP = 'ip';
-	const CHANNEL = 'channel';
-	const STATE = 'state';
-	const DURATION = 'duration';
-	const REQUIRED_OPTIONS = [self::IP, self::CHANNEL, self::STATE ];
+	const REQUIRED_OPTIONS = [Tools::IP, Tools::CHANNEL, Tools::STATE ];
 
 	const ALLOWED_VALUES_ON = ['on', '1', 'true'];
 	const ALLOWED_VALUES_OFF = ['off', '0', 'false'];
@@ -39,25 +35,25 @@ class SwitchCommand extends ApplicationCommand
 			->setDescription('Switch given channel relay to desired state')
 			->setHelp('switch --ip=X.X.X.X --channel=1|2|3|4|5|6|7|8 --state=1|on|ON|true|TRUE|0|off|OFF|false|FALSE [--duration=X]')
 			->addOption(
-				static::IP,
+				Tools::IP,
 				'i',
 				InputOption::VALUE_REQUIRED,
 				'The relay IP to switch. Must be a valid IPv4 or IPv6'
 			)
 			->addOption(
-				static::CHANNEL,
+				Tools::CHANNEL,
 				'c',
 				InputOption::VALUE_REQUIRED,
 				'The channel to switch. Must be integer between 1 and 8'
 			)
 			->addOption(
-				static::STATE,
+				Tools::STATE,
 				's',
 				InputOption::VALUE_REQUIRED,
 				'The value to set. Must be 0 or 1, true or false, on or off'
 			)
 			->addOption(
-				static::DURATION,
+				Tools::DURATION,
 				'd',
 				InputOption::VALUE_OPTIONAL,
 				'The switch on duration'
@@ -78,33 +74,33 @@ class SwitchCommand extends ApplicationCommand
 		}, static::REQUIRED_OPTIONS, ['input' => $input]);
 
 		// Business checks around options
-		if (!filter_var($input->getOption(self::IP), FILTER_VALIDATE_IP)) {
+		if (!filter_var($input->getOption(Tools::IP), FILTER_VALIDATE_IP)) {
 			throw new InvalidOptionException('IP must be a valid IP format (IPv4 or IPv6)');
 		}
-		if(!is_numeric($input->getOption(self::CHANNEL)) || $input->getOption(self::CHANNEL) < 0 || $input->getOption(self::CHANNEL) > 8) {
+		if(!is_numeric($input->getOption(Tools::CHANNEL)) || $input->getOption(Tools::CHANNEL) < 0 || $input->getOption(Tools::CHANNEL) > 8) {
 			throw new InvalidOptionException('channel must be an integer and between 1 and 8');
 		}
-		if(!in_array(strtolower($input->getOption(self::STATE)), array_merge(self::ALLOWED_VALUES_ON, self::ALLOWED_VALUES_OFF), true)) {
-			throw new InvalidOptionException('Value must be one of those : ' . implode(', ', array_merge(self::ALLOWED_VALUES_ON, self::ALLOWED_VALUES_OFF)));
+		if(!in_array(strtolower($input->getOption(Tools::STATE)), array_merge(static::ALLOWED_VALUES_ON, static::ALLOWED_VALUES_OFF), true)) {
+			throw new InvalidOptionException('Value must be one of those : ' . implode(', ', array_merge(static::ALLOWED_VALUES_ON, static::ALLOWED_VALUES_OFF)));
 		}
 
-		if(null !== $input->getOption(self::DURATION) && (!is_numeric($input->getOption(self::DURATION)) || $input->getOption(self::DURATION) < 0)) {
+		if(null !== $input->getOption(Tools::DURATION) && (!is_numeric($input->getOption(Tools::DURATION)) || $input->getOption(Tools::DURATION) < 0)) {
 			throw new InvalidOptionException('duration must be a positive integer');
 		}
 
 		// Normalize value
-		if(in_array($input->getOption(self::STATE), self::ALLOWED_VALUES_ON)) {
-			$state = self::ON;
+		if(in_array($input->getOption(Tools::STATE), static::ALLOWED_VALUES_ON)) {
+			$state = static::ON;
 		}
 		else {
-			$state = self::OFF;
+			$state = static::OFF;
 		}
 
 		$this->container['tools']->sendCommand(
-			$input->getOption(self::IP),
-			$input->getOption(self::CHANNEL),
+			$input->getOption(Tools::IP),
+			$input->getOption(Tools::CHANNEL),
 			$state,
-			$input->getOption(self::DURATION)
+			$input->getOption(Tools::DURATION)
 		);
 	}
 
